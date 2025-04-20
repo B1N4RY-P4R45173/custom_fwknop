@@ -1,0 +1,17 @@
+{
+    // Server configuration
+    "server_ip": "127.0.0.1",      // IP address of the fwknop server
+    "server_port": 62201,          // Port the server listens on (can be overridden with -p)
+
+    // Client configuration
+    "source_ip": "192.168.1.100",  // Source IP to use (can be overridden with -s)
+    "target_port": 22,             // Port to request access to (must be specified with -A)
+    "protocol": "tcp",             // Protocol to use: tcp or udp (can be overridden with -P)
+
+    // Security settings
+    "encryption_key": "your_encryption_key_here",  // Must match server's encryption key
+    "hmac_key": "your_hmac_key_here",             // Must match server's HMAC key
+
+    // Keepalive settings
+    "keepalive_interval": 240      // Seconds between keepalive packets (can be overridden with -k)
+} 

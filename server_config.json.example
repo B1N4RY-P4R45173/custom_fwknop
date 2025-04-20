@@ -1,0 +1,17 @@
+{
+    // Server configuration
+    "listen_port": 62201,          // Port to listen on (can be overridden with -p)
+    "log_file": "/var/log/fwknop.log",  // Path to log file
+
+    // Security settings
+    "encryption_key": "your_encryption_key_here",  // Must match client's encryption key
+    "hmac_key": "your_hmac_key_here",             // Must match client's HMAC key
+    "allowed_ips": [               // List of IP addresses allowed to send SPA packets
+        "192.168.1.0/24",
+        "10.0.0.0/8"
+    ],
+
+    // Firewall settings
+    "default_rule_timeout": 300,   // Seconds before rule expires if no keepalive received
+    "cleanup_interval": 60         // Seconds between cleanup checks for expired rules
+} 
