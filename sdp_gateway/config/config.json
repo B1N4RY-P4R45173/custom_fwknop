@@ -1,0 +1,32 @@
+{
+    "api": {
+        "host": "0.0.0.0",
+        "port": 5000,
+        "debug": false
+    },
+    "security": {
+        "ssl_enabled": true,
+        "cert_path": "certs/server.crt",
+        "key_path": "certs/server.key"
+    },
+    "wireguard": {
+        "interface": "wg0",
+        "server_ip": "10.0.0.1",
+        "port": 51820,
+        "server_private_key": "/home/ajay/wireguard/keys/server_private_key",
+        "server_public_key": "/home/ajay/wireguard/keys/server_public_key",
+        "physical_interface": "ens34"
+    },
+    "controller": {
+        "host": "localhost",
+        "port": 5001
+    },
+    "logging": {
+        "level": "INFO",
+        "file": "logs/gateway.log"
+    },
+    "fwknop": {
+        "config_path": "/etc/fwknop/fwknopd.conf",
+        "access_file": "/etc/fwknop/access.conf"
+    }
+} 
