@@ -1,0 +1,22 @@
+{
+    "api": {
+        "host": "0.0.0.0",
+        "port": 5000,
+        "debug": false
+    },
+    "gateway": {
+        "ip": "192.168.0.115",
+        "port": 5001
+    },
+    "wireguard": {
+        "interface": "wg0",
+        "port": 51820,
+        "network": "10.0.0.0/24",
+        "server_ip": "10.0.0.1",
+        "server_public_key": "your-server-public-key-here",
+        "dns": "8.8.8.8"
+    },
+    "allowed_ips": [
+        "192.168.0.114"
+    ]
+} 
