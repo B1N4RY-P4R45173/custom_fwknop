@@ -1,0 +1,15 @@
+{
+    "encryption_key": "your-encryption-key-here",
+    "hmac_key": "your-hmac-key-here",
+    "allowed_ips": [
+        "0.0.0.0/0"
+    ],
+    "listen_port": 62201,
+    "default_rule_timeout": 300,
+    "log_file": "spa_server.log",
+    "verbose": true,
+    "daemon": false,
+    "allowed_protocols": ["tcp", "udp"],
+    "max_packet_size": 4096,
+    "keepalive_timeout": 300
+} 

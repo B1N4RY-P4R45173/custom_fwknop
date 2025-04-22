@@ -31,6 +31,15 @@ class SPAServer:
         self.running = True
         # Track received SPA packets
         self.spa_requests = {}
+        # Override verbose from config if specified
+        if 'verbose' in self.config:
+            self.verbose = self.config['verbose']
+        # Override port from config if specified
+        if 'listen_port' in self.config:
+            self.port = self.config['listen_port']
+        # Override daemon from config if specified
+        if 'daemon' in self.config:
+            self.daemon = self.config['daemon']
 
     def load_config(self, config_file):
         try:
@@ -141,6 +150,12 @@ class SPAServer:
                 logging.warning(f"Unauthorized IP {packet_data.get('source_ip')}")
                 return
             
+            # Check if protocol is allowed
+            if 'allowed_protocols' in self.config:
+                if packet_data.get('protocol') not in self.config['allowed_protocols']:
+                    logging.warning(f"Unauthorized protocol {packet_data.get('protocol')}")
+                    return
+            
             # Instead of adding firewall rules, just record the access request
             key = f"{packet_data['source_ip']}:{packet_data['port']}:{packet_data.get('protocol', 'tcp')}"
             self.spa_requests[key] = {
@@ -153,7 +168,7 @@ class SPAServer:
             # Send a response back (optional)
             response_data = {
                 'status': 'authorized',
-                'expires': time.time() + self.config['default_rule_timeout']
+                'expires': time.time() + self.config.get('default_rule_timeout', 300)
             }
             
             if self.verbose:
@@ -166,8 +181,10 @@ class SPAServer:
     def start(self):
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Bind to all interfaces
             self.socket.bind(('0.0.0.0', self.port))
             logging.info(f"Server started on port {self.port}")
+            logging.info(f"Listening on all interfaces (0.0.0.0)")
             
             # Set up signal handlers for graceful shutdown
             signal.signal(signal.SIGINT, self.signal_handler)
@@ -176,6 +193,8 @@ class SPAServer:
             while self.running:
                 try:
                     data, addr = self.socket.recvfrom(4096)
+                    if self.verbose:
+                        logging.info(f"Received {len(data)} bytes from {addr[0]}:{addr[1]}")
                     self.handle_packet(data, addr)
                 except socket.timeout:
                     continue
