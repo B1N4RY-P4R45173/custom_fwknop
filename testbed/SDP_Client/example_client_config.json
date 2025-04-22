@@ -1,0 +1,13 @@
+{
+    "server_ip": "192.168.208.129",
+    "server_port": 62201,
+    "target_port": 51820,
+    "protocol": "udp",
+    "encryption_key": "your-encryption-key-here",
+    "hmac_key": "your-hmac-key-here",
+    "keepalive_interval": 240,
+    "verbose": true,
+    "test_mode": false,
+    "max_retries": 3,
+    "retry_delay": 5
+} 

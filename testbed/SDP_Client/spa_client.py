@@ -28,9 +28,21 @@ class SPAClient:
             self.config['target_port'] = port
         if source_ip:
             self.config['source_ip'] = source_ip
-        self.config['server_port'] = server_port
-        self.config['protocol'] = protocol
-        self.keepalive_interval = keepalive_interval
+        if server_port:
+            self.config['server_port'] = server_port
+        if protocol:
+            self.config['protocol'] = protocol
+        if keepalive_interval:
+            self.config['keepalive_interval'] = keepalive_interval
+        
+        # Override settings from config if specified
+        if 'verbose' in self.config:
+            self.verbose = self.config['verbose']
+        if 'test_mode' in self.config:
+            self.test_mode = self.config['test_mode']
+        if 'keepalive_interval' in self.config:
+            self.keepalive_interval = self.config['keepalive_interval']
+        
         self.setup_crypto()
         self.keepalive_timer = None
 
