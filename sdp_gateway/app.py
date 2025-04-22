@@ -2,7 +2,7 @@ import os
 import json
 import logging
 import subprocess
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
 
@@ -73,6 +73,53 @@ def setup_nat():
         logger.error(f"Failed to add NAT rule: {e}")
         raise
 
+def add_peer(public_key, allowed_ips, persistent_keepalive=25):
+    """Add a new WireGuard peer"""
+    try:
+        # Add the peer
+        subprocess.run(['wg', 'set', config['wireguard']['interface'],
+                       'peer', public_key,
+                       'allowed-ips', allowed_ips,
+                       'persistent-keepalive', str(persistent_keepalive)],
+                      check=True)
+        
+        # Save the configuration
+        subprocess.run(['wg-quick', 'save', config['wireguard']['interface']],
+                      check=True)
+        
+        logger.info(f"Added peer with public key: {public_key}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to add peer: {e}")
+        return False
+
+def remove_peer(public_key):
+    """Remove a WireGuard peer"""
+    try:
+        subprocess.run(['wg', 'set', config['wireguard']['interface'],
+                       'peer', public_key, 'remove'],
+                      check=True)
+        
+        # Save the configuration
+        subprocess.run(['wg-quick', 'save', config['wireguard']['interface']],
+                      check=True)
+        
+        logger.info(f"Removed peer with public key: {public_key}")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to remove peer: {e}")
+        return False
+
+def list_peers():
+    """List all WireGuard peers"""
+    try:
+        result = subprocess.run(['wg', 'show', config['wireguard']['interface']],
+                              capture_output=True, text=True)
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to list peers: {e}")
+        return None
+
 @app.route('/health')
 def health_check():
     wg_status = check_wireguard_interface()
@@ -88,6 +135,29 @@ def health_check():
 @app.route('/config')
 def get_config():
     return jsonify(config)
+
+@app.route('/peers', methods=['GET'])
+def get_peers():
+    peers = list_peers()
+    if peers is None:
+        return jsonify({'error': 'Failed to list peers'}), 500
+    return jsonify({'peers': peers})
+
+@app.route('/peers', methods=['POST'])
+def create_peer():
+    data = request.get_json()
+    if not data or 'public_key' not in data or 'allowed_ips' not in data:
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    if add_peer(data['public_key'], data['allowed_ips']):
+        return jsonify({'status': 'success'}), 201
+    return jsonify({'error': 'Failed to add peer'}), 500
+
+@app.route('/peers/<public_key>', methods=['DELETE'])
+def delete_peer(public_key):
+    if remove_peer(public_key):
+        return jsonify({'status': 'success'}), 200
+    return jsonify({'error': 'Failed to remove peer'}), 500
 
 if __name__ == '__main__':
     # Verify WireGuard interface
