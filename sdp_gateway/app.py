@@ -5,6 +5,8 @@ import subprocess
 from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
+from OpenSSL import crypto
+from datetime import datetime, timedelta
 
 # Load environment variables
 load_dotenv()
@@ -32,6 +34,54 @@ def load_config():
 
 config = load_config()
 
+def generate_self_signed_cert():
+    """Generate self-signed SSL certificate if it doesn't exist"""
+    cert_dir = os.path.dirname(config['security']['cert_path'])
+    os.makedirs(cert_dir, exist_ok=True)
+    
+    # Generate key
+    k = crypto.PKey()
+    k.generate_key(crypto.TYPE_RSA, 2048)
+    
+    # Generate certificate
+    cert = crypto.X509()
+    cert.get_subject().C = "US"
+    cert.get_subject().ST = "State"
+    cert.get_subject().L = "City"
+    cert.get_subject().O = "Organization"
+    cert.get_subject().OU = "Organizational Unit"
+    cert.get_subject().CN = "localhost"
+    cert.set_serial_number(1000)
+    cert.gmtime_adj_notBefore(0)
+    cert.gmtime_adj_notAfter(365*24*60*60)  # Valid for 1 year
+    cert.set_issuer(cert.get_subject())
+    cert.set_pubkey(k)
+    cert.sign(k, 'sha256')
+    
+    # Save certificate
+    with open(config['security']['cert_path'], "wb") as f:
+        f.write(crypto.dump_certificate(crypto.FILETYPE_PEM, cert))
+    
+    # Save private key
+    with open(config['security']['key_path'], "wb") as f:
+        f.write(crypto.dump_privatekey(crypto.FILETYPE_PEM, k))
+    
+    logger.info("Generated self-signed SSL certificate")
+
+def get_ssl_context():
+    """Get SSL context, generating self-signed certificate if needed"""
+    if not config['security']['ssl_enabled']:
+        return None
+    
+    cert_path = config['security']['cert_path']
+    key_path = config['security']['key_path']
+    
+    if not os.path.exists(cert_path) or not os.path.exists(key_path):
+        logger.warning("SSL certificate not found, generating self-signed certificate")
+        generate_self_signed_cert()
+    
+    return (cert_path, key_path)
+
 def check_wireguard_interface():
     """Check if WireGuard interface exists and is configured correctly"""
     try:
@@ -53,8 +103,10 @@ def check_wireguard_interface():
         result = subprocess.run(['iptables', '-t', 'nat', '-L', 'POSTROUTING'],
                               capture_output=True, text=True)
         if config['wireguard']['physical_interface'] not in result.stdout:
-            logger.warning("NAT rule not found, adding it...")
-            setup_nat()
+            logger.warning("NAT rule not found. The application needs root privileges to add NAT rules.")
+            logger.warning("Please run the application with sudo or add the NAT rule manually:")
+            logger.warning(f"sudo iptables -t nat -A POSTROUTING -o {config['wireguard']['physical_interface']} -j MASQUERADE")
+            return True  # Continue even without NAT rule
 
         return True
     except Exception as e:
@@ -71,7 +123,10 @@ def setup_nat():
         logger.info("NAT rule added successfully")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to add NAT rule: {e}")
-        raise
+        logger.warning("The application needs root privileges to add NAT rules.")
+        logger.warning("Please run the application with sudo or add the NAT rule manually:")
+        logger.warning(f"sudo iptables -t nat -A POSTROUTING -o {config['wireguard']['physical_interface']} -j MASQUERADE")
+        return False
 
 def add_peer(public_key, allowed_ips, persistent_keepalive=25):
     """Add a new WireGuard peer"""
@@ -170,14 +225,14 @@ if __name__ == '__main__':
     port = config['api']['port']
     debug = config['api']['debug']
     
+    # Get SSL context
+    ssl_context = get_ssl_context() if config['security']['ssl_enabled'] else None
+    
     # Start the server
     socketio.run(
         app,
         host=host,
         port=port,
         debug=debug,
-        ssl_context=(
-            config['security']['cert_path'],
-            config['security']['key_path']
-        ) if config['security']['ssl_enabled'] else None
+        ssl_context=ssl_context
     ) 
