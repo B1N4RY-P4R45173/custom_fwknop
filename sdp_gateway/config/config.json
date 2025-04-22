@@ -11,11 +11,12 @@
     },
     "wireguard": {
         "interface": "wg0",
-        "server_ip": "10.0.0.1",
+        "server_ip": "10.9.0.1",
         "port": 51820,
         "server_private_key": "/home/ajay/wireguard/keys/server_private_key",
         "server_public_key": "/home/ajay/wireguard/keys/server_public_key",
-        "physical_interface": "ens34"
+        "physical_interface": "ens34",
+        "network": "10.9.0.0/24"
     },
     "controller": {
         "host": "localhost",
