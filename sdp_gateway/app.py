@@ -7,6 +7,8 @@ from flask_socketio import SocketIO
 from dotenv import load_dotenv
 from OpenSSL import crypto
 from datetime import datetime, timedelta
+import signal
+import time
 
 # Load environment variables
 load_dotenv()
@@ -175,6 +177,58 @@ def list_peers():
         logger.error(f"Failed to list peers: {e}")
         return None
 
+def start_fwknopd():
+    """Start the fwknop daemon"""
+    try:
+        # Check if fwknopd is already running
+        result = subprocess.run(['pgrep', 'fwknopd'], capture_output=True)
+        if result.returncode == 0:
+            logger.info("fwknopd is already running")
+            return True
+
+        # Start fwknopd
+        subprocess.run(['fwknopd', '-c', config['fwknop']['config_path'], 
+                      '-a', config['fwknop']['access_file'], '-f'],
+                     check=True)
+        logger.info("Started fwknopd successfully")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to start fwknopd: {e}")
+        return False
+
+def stop_fwknopd():
+    """Stop the fwknop daemon"""
+    try:
+        # Find fwknopd process
+        result = subprocess.run(['pgrep', 'fwknopd'], capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.info("fwknopd is not running")
+            return True
+
+        # Kill fwknopd process
+        pid = int(result.stdout.strip())
+        os.kill(pid, signal.SIGTERM)
+        
+        # Wait for process to terminate
+        time.sleep(1)
+        try:
+            os.kill(pid, 0)
+            # If we get here, process is still running
+            os.kill(pid, signal.SIGKILL)
+        except OSError:
+            pass
+        
+        logger.info("Stopped fwknopd successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to stop fwknopd: {e}")
+        return False
+
+def restart_fwknopd():
+    """Restart the fwknop daemon"""
+    stop_fwknopd()
+    return start_fwknopd()
+
 @app.route('/health')
 def health_check():
     wg_status = check_wireguard_interface()
@@ -214,7 +268,33 @@ def delete_peer(public_key):
         return jsonify({'status': 'success'}), 200
     return jsonify({'error': 'Failed to remove peer'}), 500
 
+@app.route('/fwknop/status')
+def fwknop_status():
+    """Get fwknopd status"""
+    try:
+        result = subprocess.run(['pgrep', 'fwknopd'], capture_output=True)
+        status = 'running' if result.returncode == 0 else 'stopped'
+        return jsonify({
+            'status': status,
+            'config_path': config['fwknop']['config_path'],
+            'access_file': config['fwknop']['access_file']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/fwknop/restart', methods=['POST'])
+def fwknop_restart():
+    """Restart fwknopd service"""
+    if restart_fwknopd():
+        return jsonify({'status': 'success'})
+    return jsonify({'error': 'Failed to restart fwknopd'}), 500
+
 if __name__ == '__main__':
+    # Start fwknopd
+    if not start_fwknopd():
+        logger.error("Failed to start fwknopd. Please ensure fwknop is properly installed and configured.")
+        exit(1)
+        
     # Verify WireGuard interface
     if not check_wireguard_interface():
         logger.error("WireGuard interface check failed. Please ensure WireGuard is properly configured.")
