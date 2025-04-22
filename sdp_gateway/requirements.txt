@@ -1,7 +1,7 @@
 Flask==2.3.3
 Werkzeug==2.3.7
 Flask-SocketIO==5.3.6
-python-engineio==4.7.1
+python-engineio==4.8.0
 python-socketio==5.11.1
 eventlet==0.33.3
 pyOpenSSL==23.2.0
