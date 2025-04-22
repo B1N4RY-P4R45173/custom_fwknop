@@ -38,8 +38,27 @@ class SPAClient:
         try:
             with open(config_file, 'r') as f:
                 self.config = json.load(f)
+            
+            # Automatically detect source IP
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                # Connect to a public DNS server to get our IP
+                s.connect(("8.8.8.8", 80))
+                self.config['source_ip'] = s.getsockname()[0]
+            except Exception:
+                # Fallback to localhost if detection fails
+                self.config['source_ip'] = "127.0.0.1"
+            finally:
+                s.close()
+            
+            if self.verbose:
+                print(f"Detected source IP: {self.config['source_ip']}")
+            
         except FileNotFoundError:
             print(f"Error: Configuration file {config_file} not found")
+            sys.exit(1)
+        except json.JSONDecodeError:
+            print(f"Error: Invalid JSON in configuration file {config_file}")
             sys.exit(1)
 
     def setup_crypto(self):
@@ -198,8 +217,8 @@ def main():
   Use custom config file:
     python3 spa_client.py -A 22 -p 62201 -c custom_config.json
 ''')
-    parser.add_argument('-A', '--access', type=int, required=True,
-                      help='Target port to request access to')
+    parser.add_argument('-A', '--access', type=int,
+                      help='Target port to request access to (overrides config file)')
     parser.add_argument('-p', '--port', type=int, default=62201,
                       help='Destination port to send SPA packet to (default: 62201)')
     parser.add_argument('-P', '--protocol', choices=['tcp', 'udp'], default='tcp',
