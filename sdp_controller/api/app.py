@@ -1,5 +1,4 @@
 from flask import Flask, jsonify, request
-from flask_socketio import SocketIO
 import json
 import logging
 import os
@@ -8,7 +7,6 @@ import subprocess
 from datetime import datetime
 
 app = Flask(__name__)
-socketio = SocketIO(app)
 
 # Configure logging
 logging.basicConfig(
@@ -73,13 +71,6 @@ def handle_auth():
         # Generate WireGuard configuration
         wg_config, config_path = generate_wireguard_config(client_ip)
         
-        # Notify gateway
-        socketio.emit('new_client', {
-            'client_ip': client_ip,
-            'wg_config': wg_config,
-            'timestamp': datetime.now().isoformat()
-        }, namespace='/gateway')
-        
         # Log the event
         logger.info(f"Generated WireGuard config for {client_ip}")
         
@@ -93,16 +84,13 @@ def handle_auth():
         logger.error(f"Error handling auth: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@socketio.on('connect', namespace='/gateway')
-def handle_gateway_connect():
-    """Handle gateway connection"""
-    logger.info("Gateway connected")
-    socketio.emit('status', {'status': 'connected'}, namespace='/gateway')
-
-@socketio.on('disconnect', namespace='/gateway')
-def handle_gateway_disconnect():
-    """Handle gateway disconnection"""
-    logger.info("Gateway disconnected")
+@app.route('/health')
+def health_check():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'version': '1.0.0'
+    })
 
 if __name__ == '__main__':
     # Create necessary directories
@@ -110,7 +98,8 @@ if __name__ == '__main__':
     os.makedirs('wireguard', exist_ok=True)
     
     # Start the server
-    socketio.run(app, 
-                host=config['api']['host'], 
-                port=config['api']['port'],
-                debug=config['api']['debug']) 
+    app.run(
+        host=config['api']['host'], 
+        port=config['api']['port'],
+        debug=config['api']['debug']
+    ) 
