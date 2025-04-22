@@ -190,10 +190,14 @@ class SPAServer:
     def signal_handler(self, signum, frame):
         logging.info(f"Received signal {signum}, shutting down...")
         self.running = False
+        if self.socket:
+            self.socket.close()
+        sys.exit(0)
 
     def cleanup(self):
         if self.socket:
             self.socket.close()
+        sys.exit(0)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -249,7 +253,10 @@ def main():
 
     server = SPAServer(config_file=args.config, verbose=args.verbose, 
                       port=args.port, daemon=args.daemon)
-    server.start()
+    try:
+        server.start()
+    except KeyboardInterrupt:
+        server.cleanup()
 
 if __name__ == "__main__":
     main() 
