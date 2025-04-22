@@ -5,15 +5,15 @@
         "debug": false
     },
     "gateway": {
-        "ip": "192.168.0.115",
+        "ip": "10.0.1.30",
         "port": 5001
     },
     "wireguard": {
         "interface": "wg0",
         "port": 51820,
-        "network": "10.0.0.0/24",
-        "server_ip": "10.0.0.1",
-        "server_public_key": "your-server-public-key-here",
+        "network": "10.9.0.0/24",
+        "server_ip": "10.9.0.1",
+        "server_public_key": "l492cr6+l5Lv+qhlogWZqD0ooPc3cJco7JxM1ZqPyRg=",
         "dns": "8.8.8.8"
     },
     "allowed_ips": [
