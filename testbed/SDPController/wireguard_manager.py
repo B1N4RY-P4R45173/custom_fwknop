@@ -163,10 +163,22 @@ fi
             client_private_key, client_public_key = self.generate_wg_keys()
             logging.info(f"Generated new key pair for client {source_ip}")
             
-            # Get server's public key
+            # Get server's public key from gateway
             try:
-                server_public_key = subprocess.check_output(['wg', 'show', 'wg0', 'public-key']).decode().strip()
-                logging.info("Retrieved server's public key")
+                # SSH into gateway to get the public key
+                ssh_command = "sudo wg show wg0 public-key"
+                result = subprocess.run(
+                    ['ssh', f'{self.gateway_user}@{self.gateway_ip}', ssh_command],
+                    capture_output=True,
+                    text=True
+                )
+                
+                if result.returncode == 0:
+                    server_public_key = result.stdout.strip()
+                    logging.info("Retrieved server's public key from gateway")
+                else:
+                    logging.error(f"Failed to get server's public key from gateway: {result.stderr}")
+                    return None
             except subprocess.CalledProcessError as e:
                 logging.error(f"Failed to get server's public key: {str(e)}")
                 return None
