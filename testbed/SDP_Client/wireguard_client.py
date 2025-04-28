@@ -20,7 +20,7 @@ class WireGuardClient:
         self.load_config(config_file)
         self.setup_crypto()
         # Use user's home directory for config storage
-        self.wg_config_dir = os.path.expanduser('~/.wireguard')
+        self.wg_config_dir = os.path.expanduser('/etc/wireguard')
         self.interface_name = 'wg0'
         self.setup_logging()
 
