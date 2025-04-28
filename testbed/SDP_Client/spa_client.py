@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
+from wireguard_client import WireGuardClient
 
 class SPAClient:
     def __init__(self, config_file='client_config.json', port=None, server_port=62201, 
@@ -45,6 +46,8 @@ class SPAClient:
         
         self.setup_crypto()
         self.keepalive_timer = None
+        # Initialize WireGuard client
+        self.wg_client = WireGuardClient(config_file)
 
     def load_config(self, config_file):
         try:
@@ -179,6 +182,22 @@ class SPAClient:
                 print(f"SPA packet sent to {self.config['server_ip']}:{self.config['server_port']}")
                 if self.verbose:
                     print(f"Requesting access to port: {self.config['target_port']}")
+            
+            # Wait for and process the response
+            if not is_keepalive:
+                sock.settimeout(5)  # 5 second timeout for response
+                try:
+                    response, addr = sock.recvfrom(4096)
+                    if self.verbose:
+                        print(f"Received response from {addr[0]}:{addr[1]}")
+                    
+                    # Process the WireGuard configuration
+                    if self.wg_client.process_server_response(response):
+                        print("WireGuard configuration applied successfully")
+                    else:
+                        print("Failed to apply WireGuard configuration")
+                except socket.timeout:
+                    print("No response received from server")
             
         except Exception as e:
             print(f"Error sending packet: {str(e)}")

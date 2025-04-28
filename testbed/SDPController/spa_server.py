@@ -18,6 +18,7 @@ import threading
 import base64
 import argparse
 import pprint
+from wireguard_manager import WireGuardManager
 
 class SPAServer:
     def __init__(self, config_file='server_config.json', verbose=False, port=62201, daemon=False):
@@ -31,6 +32,8 @@ class SPAServer:
         self.running = True
         # Track received SPA packets
         self.spa_requests = {}
+        # Initialize WireGuard manager
+        self.wg_manager = WireGuardManager(config_file)
         # Override verbose from config if specified
         if 'verbose' in self.config:
             self.verbose = self.config['verbose']
@@ -156,7 +159,17 @@ class SPAServer:
                     logging.warning(f"Unauthorized protocol {packet_data.get('protocol')}")
                     return
             
-            # Instead of adding firewall rules, just record the access request
+            # Process SPA request and get WireGuard config
+            wg_response = self.wg_manager.process_spa_request(packet_data['source_ip'])
+            
+            if wg_response:
+                # Send the encrypted WireGuard config back to client
+                self.socket.sendto(wg_response, addr)
+                logging.info(f"Sent WireGuard config to {addr[0]}")
+            else:
+                logging.error(f"Failed to generate WireGuard config for {addr[0]}")
+            
+            # Record the access request
             key = f"{packet_data['source_ip']}:{packet_data['port']}:{packet_data.get('protocol', 'tcp')}"
             self.spa_requests[key] = {
                 'timestamp': time.time(),
@@ -165,16 +178,6 @@ class SPAServer:
             
             logging.info(f"Authorized SPA request: {key}")
             
-            # Send a response back (optional)
-            response_data = {
-                'status': 'authorized',
-                'expires': time.time() + self.config.get('default_rule_timeout', 300)
-            }
-            
-            if self.verbose:
-                print(f"SPA request authorized: {key}")
-            
-            logging.info(f"Successfully processed SPA packet from {addr[0]}")
         except Exception as e:
             logging.error(f"Error processing packet: {str(e)}")
 
