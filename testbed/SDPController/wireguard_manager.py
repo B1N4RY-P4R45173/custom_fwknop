@@ -13,14 +13,21 @@ from cryptography.hazmat.backends import default_backend
 import hmac
 import hashlib
 import socket
+import time
 
 class WireGuardManager:
     def __init__(self, config_file='server_config.json'):
         self.load_config(config_file)
         self.setup_crypto()
-        self.wg_config_dir = '/etc/wireguard'
-        self.client_ip_range = '10.0.0.0/24'
-        self.dns_servers = ['8.8.8.8', '8.8.4.4']  # Google DNS
+        self.gateway_ip = "10.0.3.2"  # Your gateway IP
+        self.gateway_user = "ajay"           # Your gateway username
+        self.setup_logging()
+
+    def setup_logging(self):
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s'
+        )
 
     def load_config(self, config_file):
         try:
@@ -57,7 +64,7 @@ class WireGuardManager:
         config = f"""[Interface]
 PrivateKey = {client_private_key}
 Address = {client_ip}/24
-DNS = {', '.join(self.dns_servers)}
+DNS = 8.8.8.8, 8.8.4.4
 
 [Peer]
 PublicKey = {server_public_key}
@@ -66,6 +73,55 @@ Endpoint = {self.config.get('server_ip', '127.0.0.1')}:{self.config.get('wg_port
 PersistentKeepalive = 25
 """
         return config
+
+    def update_gateway_config(self, client_public_key, client_ip):
+        """Update WireGuard configuration on gateway"""
+        try:
+            # Create the peer configuration
+            peer_config = f"""
+[Peer]
+PublicKey = {client_public_key}
+AllowedIPs = {client_ip}/32
+"""
+            
+            # SSH into gateway and update configuration
+            ssh_command = f"""
+# Create backup of current config
+sudo cp /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.bak
+
+# Check if peer already exists
+if ! sudo grep -q "{client_public_key}" /etc/wireguard/wg0.conf; then
+    # Append new peer configuration
+    echo '{peer_config}' | sudo tee -a /etc/wireguard/wg0.conf > /dev/null
+    
+    # Restart WireGuard interface
+    sudo wg-quick down wg0
+    sudo wg-quick up wg0
+    
+    # Log the update
+    echo "$(date): Added new peer {client_ip} with public key {client_public_key}" | sudo tee -a /var/log/wireguard_updates.log
+else
+    echo "$(date): Peer {client_ip} already exists in configuration" | sudo tee -a /var/log/wireguard_updates.log
+fi
+"""
+            
+            # Execute SSH command
+            result = subprocess.run(
+                ['ssh', f'{self.gateway_user}@{self.gateway_ip}', ssh_command],
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                logging.info(f"Successfully updated gateway configuration for client {client_ip}")
+                return True
+            else:
+                logging.error(f"Failed to update gateway configuration: {result.stderr}")
+                return False
+                
+        except Exception as e:
+            logging.error(f"Error updating gateway configuration: {str(e)}")
+            return False
 
     def encrypt_response(self, data):
         """Encrypt and sign the response data"""
@@ -117,6 +173,11 @@ PersistentKeepalive = 25
                 server_public_key,
                 client_ip
             )
+            
+            # Update gateway configuration
+            if not self.update_gateway_config(client_public_key, client_ip):
+                logging.error("Failed to update gateway configuration")
+                return None
             
             # Prepare response data
             response_data = {
