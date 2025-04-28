@@ -160,7 +160,7 @@ class SPAServer:
                     return
             
             # Process SPA request and get WireGuard config
-            wg_response = self.wg_manager.process_spa_request(packet_data['source_ip'])
+            wg_response = self.wg_manager.process_spa_request(addr[0])  # Use actual source IP from socket
             
             if wg_response:
                 # Send the encrypted WireGuard config back to client
@@ -170,7 +170,7 @@ class SPAServer:
                 logging.error(f"Failed to generate WireGuard config for {addr[0]}")
             
             # Record the access request
-            key = f"{packet_data['source_ip']}:{packet_data['port']}:{packet_data.get('protocol', 'tcp')}"
+            key = f"{addr[0]}:{packet_data.get('port', '')}:{packet_data.get('protocol', 'tcp')}"
             self.spa_requests[key] = {
                 'timestamp': time.time(),
                 'data': packet_data
@@ -180,6 +180,9 @@ class SPAServer:
             
         except Exception as e:
             logging.error(f"Error processing packet: {str(e)}")
+            if self.verbose:
+                import traceback
+                traceback.print_exc()
 
     def start(self):
         try:

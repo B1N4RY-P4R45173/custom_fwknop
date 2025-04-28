@@ -19,7 +19,7 @@ class WireGuardManager:
     def __init__(self, config_file='server_config.json'):
         self.load_config(config_file)
         self.setup_crypto()
-        self.gateway_ip = "10.0.3.2"  # Your gateway IP
+        self.gateway_ip = "10.0.3.2"         # Your gateway IP
         self.gateway_user = "ajay"           # Your gateway username
         self.setup_logging()
 
@@ -157,14 +157,23 @@ fi
     def process_spa_request(self, source_ip):
         """Process SPA request and generate WireGuard config"""
         try:
+            logging.info(f"Processing SPA request from {source_ip}")
+            
             # Generate new key pair for client
             client_private_key, client_public_key = self.generate_wg_keys()
+            logging.info(f"Generated new key pair for client {source_ip}")
             
             # Get server's public key
-            server_public_key = subprocess.check_output(['wg', 'show', 'wg0', 'public-key']).decode().strip()
+            try:
+                server_public_key = subprocess.check_output(['wg', 'show', 'wg0', 'public-key']).decode().strip()
+                logging.info("Retrieved server's public key")
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Failed to get server's public key: {str(e)}")
+                return None
             
             # Get next available client IP
             client_ip = self.get_next_client_ip()
+            logging.info(f"Assigned IP {client_ip} to client {source_ip}")
             
             # Create WireGuard config
             wg_config = self.create_wg_config(
@@ -173,6 +182,7 @@ fi
                 server_public_key,
                 client_ip
             )
+            logging.info("Created WireGuard configuration")
             
             # Update gateway configuration
             if not self.update_gateway_config(client_public_key, client_ip):
@@ -188,11 +198,15 @@ fi
             
             # Encrypt the response
             encrypted_response = self.encrypt_response(response_data)
+            logging.info("Encrypted response data")
             
             return encrypted_response
             
         except Exception as e:
             logging.error(f"Error generating WireGuard config: {str(e)}")
+            if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+                import traceback
+                traceback.print_exc()
             return None
 
 def main():
