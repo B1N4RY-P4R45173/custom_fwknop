@@ -64,13 +64,11 @@ class WireGuardManager:
         config = f"""[Interface]
 PrivateKey = {client_private_key}
 Address = {client_ip}/24
-DNS = 8.8.8.8, 8.8.4.4
 
 [Peer]
 PublicKey = {server_public_key}
 AllowedIPs = 0.0.0.0/0
-Endpoint = {self.config.get('server_ip', '127.0.0.1')}:{self.config.get('wg_port', 51820)}
-PersistentKeepalive = 25
+Endpoint = {self.gateway_ip}:{self.config.get('wg_port', 51820)}
 """
         return config
 
