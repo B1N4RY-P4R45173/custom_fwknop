@@ -20,7 +20,7 @@ class WireGuardManager:
         self.load_config(config_file)
         self.setup_crypto()
         self.gateway_ip = "10.0.3.2"         # Your gateway IP
-        self.gateway_user = "ajay"           # Your gateway username
+        self.gateway_user = "root"           # Use root user
         self.setup_logging()
 
     def setup_logging(self):
@@ -87,27 +87,27 @@ AllowedIPs = {client_ip}/32
             # SSH into gateway and update configuration
             ssh_command = f"""
 # Create backup of current config
-sudo cp /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.bak
+cp /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.bak
 
 # Check if peer already exists
-if ! sudo grep -q "{client_public_key}" /etc/wireguard/wg0.conf; then
+if ! grep -q "{client_public_key}" /etc/wireguard/wg0.conf; then
     # Append new peer configuration
-    echo '{peer_config}' | sudo tee -a /etc/wireguard/wg0.conf > /dev/null
+    echo '{peer_config}' | tee -a /etc/wireguard/wg0.conf > /dev/null
     
     # Restart WireGuard interface
-    sudo wg-quick down wg0
-    sudo wg-quick up wg0
+    wg-quick down wg0
+    wg-quick up wg0
     
     # Log the update
-    echo "$(date): Added new peer {client_ip} with public key {client_public_key}" | sudo tee -a /var/log/wireguard_updates.log
+    echo "$(date): Added new peer {client_ip} with public key {client_public_key}" | tee -a /var/log/wireguard_updates.log
 else
-    echo "$(date): Peer {client_ip} already exists in configuration" | sudo tee -a /var/log/wireguard_updates.log
+    echo "$(date): Peer {client_ip} already exists in configuration" | tee -a /var/log/wireguard_updates.log
 fi
 """
             
             # Execute SSH command
             result = subprocess.run(
-                ['ssh', f'{self.gateway_user}@{self.gateway_ip}', ssh_command],
+                ['ssh', '-o', 'BatchMode=yes', f'{self.gateway_user}@{self.gateway_ip}', ssh_command],
                 capture_output=True,
                 text=True
             )
@@ -166,9 +166,9 @@ fi
             # Get server's public key from gateway
             try:
                 # SSH into gateway to get the public key
-                ssh_command = "sudo wg show wg0 public-key"
+                ssh_command = "wg show wg0 public-key"
                 result = subprocess.run(
-                    ['ssh', f'{self.gateway_user}@{self.gateway_ip}', ssh_command],
+                    ['ssh', '-o', 'BatchMode=yes', f'{self.gateway_user}@{self.gateway_ip}', ssh_command],
                     capture_output=True,
                     text=True
                 )
