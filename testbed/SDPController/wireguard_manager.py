@@ -57,7 +57,7 @@ class WireGuardManager:
     def get_next_client_ip(self):
         """Get next available IP in the range"""
         # This is a simple implementation - in production, you'd want to track used IPs
-        return '10.0.0.2'  # First client IP
+        return '10.9.0.2'  # First client IP in the 10.9.0.0/24 range
 
     def create_wg_config(self, client_private_key, client_public_key, server_public_key, client_ip):
         """Create WireGuard configuration for client"""
