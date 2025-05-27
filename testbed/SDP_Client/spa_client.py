@@ -34,29 +34,11 @@ class SPAClient:
         self.logger.info("Configuration loaded")
 
     def setup_crypto(self):
-        # Derive encryption key from the base64 encoded key in config
-        key_material = b64decode(self.config['encryption_key'])
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=b'SPA_SALT',
-            iterations=100000,
-            backend=default_backend()
-        )
-        self.encryption_key = kdf.derive(key_material)
-        self.logger.info(f"Encryption key derived: {base64.b64encode(self.encryption_key).decode()}")
-
-        # Derive HMAC key
-        hmac_material = b64decode(self.config['hmac_key'])
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=b'SPA_SALT',
-            iterations=100000,
-            backend=default_backend()
-        )
-        self.hmac_key = kdf.derive(hmac_material)
-        self.logger.info(f"HMAC key derived: {base64.b64encode(self.hmac_key).decode()}")
+        # Use the raw keys directly
+        self.encryption_key = b64decode(self.config['encryption_key'])
+        self.hmac_key = b64decode(self.config['hmac_key'])
+        self.logger.info(f"Encryption key: {base64.b64encode(self.encryption_key).decode()}")
+        self.logger.info(f"HMAC key: {base64.b64encode(self.hmac_key).decode()}")
 
     def verify_hmac(self, data, hmac):
         h = hashes.Hash(hashes.SHA256(), backend=default_backend())
