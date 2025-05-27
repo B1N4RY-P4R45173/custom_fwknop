@@ -5,6 +5,7 @@ import logging
 import socket
 import time
 import os
+import base64
 from base64 import b64decode
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -43,6 +44,7 @@ class SPAClient:
             backend=default_backend()
         )
         self.encryption_key = kdf.derive(key_material)
+        self.logger.info(f"Encryption key derived: {base64.b64encode(self.encryption_key).decode()}")
 
         # Derive HMAC key
         hmac_material = b64decode(self.config['hmac_key'])
@@ -54,6 +56,7 @@ class SPAClient:
             backend=default_backend()
         )
         self.hmac_key = kdf.derive(hmac_material)
+        self.logger.info(f"HMAC key derived: {base64.b64encode(self.hmac_key).decode()}")
 
     def verify_hmac(self, data, hmac):
         h = hashes.Hash(hashes.SHA256(), backend=default_backend())
@@ -68,6 +71,9 @@ class SPAClient:
             iv = encrypted_data[:16]
             ciphertext = encrypted_data[16:]
             
+            self.logger.info(f"Decrypting packet - IV: {base64.b64encode(iv).decode()}")
+            self.logger.info(f"Ciphertext length: {len(ciphertext)}")
+            
             # Create cipher
             cipher = Cipher(
                 algorithms.AES(self.encryption_key),
@@ -78,10 +84,12 @@ class SPAClient:
             
             # Decrypt
             padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+            self.logger.info(f"Padded plaintext length: {len(padded_plaintext)}")
             
             # Remove padding using PKCS7
             unpadder = padding.PKCS7(128).unpadder()
             plaintext = unpadder.update(padded_plaintext) + unpadder.finalize()
+            self.logger.info(f"Plaintext length: {len(plaintext)}")
             
             return plaintext
         except Exception as e:
@@ -100,13 +108,16 @@ class SPAClient:
             
             # Convert to JSON and encode
             data = json.dumps(spa_data).encode()
+            self.logger.info(f"Original data: {data.decode()}")
             
             # Add PKCS7 padding
             padder = padding.PKCS7(128).padder()
             padded_data = padder.update(data) + padder.finalize()
+            self.logger.info(f"Padded data length: {len(padded_data)}")
             
             # Generate IV
             iv = os.urandom(16)
+            self.logger.info(f"Generated IV: {base64.b64encode(iv).decode()}")
             
             # Encrypt
             cipher = Cipher(
@@ -116,15 +127,19 @@ class SPAClient:
             )
             encryptor = cipher.encryptor()
             encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
+            self.logger.info(f"Encrypted data length: {len(encrypted_data)}")
             
             # Calculate HMAC
             h = hashes.Hash(hashes.SHA256(), backend=default_backend())
             h.update(self.hmac_key)
             h.update(encrypted_data)
             hmac = h.finalize()
+            self.logger.info(f"HMAC: {base64.b64encode(hmac).decode()}")
             
             # Combine HMAC, IV, and encrypted data
             packet = hmac + iv + encrypted_data
+            self.logger.info(f"Final packet length: {len(packet)}")
+            self.logger.info(f"Final packet (base64): {base64.b64encode(packet).decode()}")
             
             # Create socket
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -138,6 +153,7 @@ class SPAClient:
             # Wait for response
             try:
                 response, _ = sock.recvfrom(4096)
+                self.logger.info(f"Received response length: {len(response)}")
                 
                 # Split HMAC and encrypted data
                 response_hmac = response[:32]
